@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-rayclaw = { path = "../../rayclaw" }
+rayclaw = { path = "../../rayclaw", default-features = false, features = ["telegram", "discord", "slack", "feishu"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tokio = { version = "1", features = ["full"] }
