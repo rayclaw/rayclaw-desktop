@@ -1331,6 +1331,174 @@ pub async fn get_task_run_logs(
         .collect())
 }
 
+// ---------------------------------------------------------------------------
+// Commands: Dashboard
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TasksSummaryDto {
+    pub total: usize,
+    pub active: usize,
+    pub paused: usize,
+    pub completed: usize,
+    pub cancelled: usize,
+    pub runs_24h: usize,
+    pub failures_24h: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DbStatsDto {
+    pub chats_count: usize,
+    pub messages_count: usize,
+    pub memories_count: usize,
+    pub tasks_count: usize,
+    pub db_size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DashboardMemoryDto {
+    pub id: i64,
+    pub chat_id: Option<i64>,
+    pub content: String,
+    pub category: String,
+    pub confidence: f64,
+    pub source: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub last_seen_at: String,
+    pub is_archived: bool,
+    pub archived_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DashboardTasksResultDto {
+    pub total: usize,
+    pub tasks: Vec<ScheduledTaskDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DashboardMemoriesResultDto {
+    pub total: usize,
+    pub memories: Vec<DashboardMemoryDto>,
+}
+
+#[tauri::command]
+pub async fn get_dashboard_tasks_summary(app: tauri::AppHandle) -> Result<TasksSummaryDto, String> {
+    let desktop = app.state::<DesktopState>();
+    let state = require_state(&desktop).await?;
+    let summary = state.db.get_tasks_summary().map_err(|e| e.to_string())?;
+    Ok(TasksSummaryDto {
+        total: summary.total,
+        active: summary.active,
+        paused: summary.paused,
+        completed: summary.completed,
+        cancelled: summary.cancelled,
+        runs_24h: summary.runs_24h,
+        failures_24h: summary.failures_24h,
+    })
+}
+
+#[tauri::command]
+pub async fn get_dashboard_tasks(
+    app: tauri::AppHandle,
+    status: Option<String>,
+    schedule_type: Option<String>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<DashboardTasksResultDto, String> {
+    let desktop = app.state::<DesktopState>();
+    let state = require_state(&desktop).await?;
+    let limit = limit.unwrap_or(50).min(200);
+    let offset = offset.unwrap_or(0);
+    let (tasks, total) = state
+        .db
+        .get_all_tasks(
+            status.as_deref(),
+            schedule_type.as_deref(),
+            limit,
+            offset,
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(DashboardTasksResultDto {
+        total,
+        tasks: tasks
+            .into_iter()
+            .map(|t| ScheduledTaskDto {
+                id: t.id,
+                chat_id: t.chat_id,
+                prompt: t.prompt,
+                schedule_type: t.schedule_type,
+                schedule_value: t.schedule_value,
+                next_run: t.next_run,
+                last_run: t.last_run,
+                status: t.status,
+                created_at: t.created_at,
+            })
+            .collect(),
+    })
+}
+
+#[tauri::command]
+pub async fn get_dashboard_memories(
+    app: tauri::AppHandle,
+    chat_id: Option<i64>,
+    category: Option<String>,
+    search: Option<String>,
+    include_archived: Option<bool>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<DashboardMemoriesResultDto, String> {
+    let desktop = app.state::<DesktopState>();
+    let state = require_state(&desktop).await?;
+    let limit = limit.unwrap_or(50).min(200);
+    let offset = offset.unwrap_or(0);
+    let include_archived = include_archived.unwrap_or(false);
+    let (memories, total) = state
+        .db
+        .browse_memories(
+            chat_id,
+            category.as_deref(),
+            include_archived,
+            search.as_deref(),
+            limit,
+            offset,
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(DashboardMemoriesResultDto {
+        total,
+        memories: memories
+            .into_iter()
+            .map(|m| DashboardMemoryDto {
+                id: m.id,
+                chat_id: m.chat_id,
+                content: m.content,
+                category: m.category,
+                confidence: m.confidence,
+                source: m.source,
+                created_at: m.created_at,
+                updated_at: m.updated_at,
+                last_seen_at: m.last_seen_at,
+                is_archived: m.is_archived,
+                archived_at: m.archived_at,
+            })
+            .collect(),
+    })
+}
+
+#[tauri::command]
+pub async fn get_db_stats(app: tauri::AppHandle) -> Result<DbStatsDto, String> {
+    let desktop = app.state::<DesktopState>();
+    let state = require_state(&desktop).await?;
+    let stats = state.db.get_db_stats().map_err(|e| e.to_string())?;
+    Ok(DbStatsDto {
+        chats_count: stats.chats_count,
+        messages_count: stats.messages_count,
+        memories_count: stats.memories_count,
+        tasks_count: stats.tasks_count,
+        db_size_bytes: stats.db_size_bytes,
+    })
+}
+
 /// Extract the body content from a SKILL.md (everything after the YAML frontmatter).
 fn extract_skill_body(raw: &str) -> String {
     let trimmed = raw.trim_start_matches('\u{feff}');

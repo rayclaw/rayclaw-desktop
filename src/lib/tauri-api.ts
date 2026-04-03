@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppStatus, ConfigDto, ChatSummary, StoredMessage, AgentStreamEvent, ChannelStatus, SoulDto, SkillDto, SkillDetailDto, MemoryDto, MemoryObservabilityDto, UsageSummaryDto, ModelUsageDto, ScheduledTaskDto, TaskRunLogDto } from "../types";
+import type { AppStatus, ConfigDto, ChatSummary, StoredMessage, AgentStreamEvent, ChannelStatus, SoulDto, SkillDto, SkillDetailDto, MemoryDto, MemoryObservabilityDto, UsageSummaryDto, ModelUsageDto, ScheduledTaskDto, TaskRunLogDto, TasksSummaryDto, DbStatsDto, DashboardTasksResult, DashboardMemoriesResult } from "../types";
 
 export async function getStatus(): Promise<AppStatus> {
   return invoke("get_status");
@@ -149,4 +149,45 @@ export async function deleteScheduledTask(taskId: number): Promise<boolean> {
 
 export async function getTaskRunLogs(taskId: number): Promise<TaskRunLogDto[]> {
   return invoke("get_task_run_logs", { taskId });
+}
+
+// Dashboard
+export async function getDashboardTasksSummary(): Promise<TasksSummaryDto> {
+  return invoke("get_dashboard_tasks_summary");
+}
+
+export async function getDashboardTasks(
+  status?: string,
+  scheduleType?: string,
+  limit?: number,
+  offset?: number,
+): Promise<DashboardTasksResult> {
+  return invoke("get_dashboard_tasks", {
+    status: status ?? null,
+    scheduleType: scheduleType ?? null,
+    limit: limit ?? 50,
+    offset: offset ?? 0,
+  });
+}
+
+export async function getDashboardMemories(
+  chatId?: number | null,
+  category?: string,
+  search?: string,
+  includeArchived?: boolean,
+  limit?: number,
+  offset?: number,
+): Promise<DashboardMemoriesResult> {
+  return invoke("get_dashboard_memories", {
+    chatId: chatId ?? null,
+    category: category ?? null,
+    search: search ?? null,
+    includeArchived: includeArchived ?? false,
+    limit: limit ?? 50,
+    offset: offset ?? 0,
+  });
+}
+
+export async function getDbStats(): Promise<DbStatsDto> {
+  return invoke("get_db_stats");
 }

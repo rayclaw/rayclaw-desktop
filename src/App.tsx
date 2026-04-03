@@ -5,11 +5,12 @@ import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import SetupScreen from "./components/SetupScreen";
 import SettingsPage from "./components/SettingsPage";
+import DashboardPage from "./components/DashboardPage";
 import { getStatus, getChats, newChat, exportChatMarkdown } from "./lib/tauri-api";
 import type { AppStatus, ChatSummary } from "./types";
 import "./App.css";
 
-type View = "chat" | "settings";
+type View = "chat" | "settings" | "dashboard";
 
 function loadPinnedIds(): Set<number> {
   try {
@@ -115,6 +116,13 @@ function App() {
         return;
       }
 
+      // Cmd+D: open dashboard
+      if (mod && e.key === "d") {
+        e.preventDefault();
+        setView("dashboard");
+        return;
+      }
+
       // Cmd+F: search in chat
       if (mod && e.key === "f") {
         e.preventDefault();
@@ -139,7 +147,7 @@ function App() {
           setChatSearchOpen(false);
           return;
         }
-        if (view === "settings") {
+        if (view === "settings" || view === "dashboard") {
           setView("chat");
           return;
         }
@@ -199,6 +207,15 @@ function App() {
     );
   }
 
+  // Dashboard page
+  if (view === "dashboard") {
+    return (
+      <DashboardPage
+        onBack={() => setView("chat")}
+      />
+    );
+  }
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -207,6 +224,7 @@ function App() {
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         onOpenSettings={() => setView("settings")}
+        onOpenDashboard={() => setView("dashboard")}
         onChatDeleted={() => {
           setActiveChatId(null);
           loadChats();

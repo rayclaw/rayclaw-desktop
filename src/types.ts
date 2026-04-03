@@ -201,6 +201,49 @@ export interface TaskRunLogDto {
   result_summary: string | null;
 }
 
+// Dashboard
+export interface TasksSummaryDto {
+  total: number;
+  active: number;
+  paused: number;
+  completed: number;
+  cancelled: number;
+  runs_24h: number;
+  failures_24h: number;
+}
+
+export interface DbStatsDto {
+  chats_count: number;
+  messages_count: number;
+  memories_count: number;
+  tasks_count: number;
+  db_size_bytes: number;
+}
+
+export interface DashboardMemoryDto {
+  id: number;
+  chat_id: number | null;
+  content: string;
+  category: string;
+  confidence: number;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  last_seen_at: string;
+  is_archived: boolean;
+  archived_at: string | null;
+}
+
+export interface DashboardTasksResult {
+  total: number;
+  tasks: ScheduledTaskDto[];
+}
+
+export interface DashboardMemoriesResult {
+  total: number;
+  memories: DashboardMemoryDto[];
+}
+
 export type AgentStreamEvent =
   | { type: "iteration"; chat_id: number; iteration: number }
   | { type: "tool_start"; chat_id: number; name: string }

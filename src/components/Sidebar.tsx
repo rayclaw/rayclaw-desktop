@@ -12,6 +12,7 @@ interface SidebarProps {
   onSelectChat: (chatId: number) => void;
   onNewChat: () => void;
   onOpenSettings: () => void;
+  onOpenDashboard: () => void;
   onChatDeleted: () => void;
   width: number;
   onWidthChange: (w: number) => void;
@@ -42,6 +43,7 @@ export default function Sidebar({
   onSelectChat,
   onNewChat,
   onOpenSettings,
+  onOpenDashboard,
   onChatDeleted,
   width,
   onWidthChange,
@@ -301,6 +303,9 @@ export default function Sidebar({
         )}
       </div>
       <div className="sidebar-footer">
+        <button className="btn-dashboard" onClick={onOpenDashboard}>
+          Dashboard
+        </button>
         <button className="btn-settings" onClick={onOpenSettings}>
           Settings
         </button>
