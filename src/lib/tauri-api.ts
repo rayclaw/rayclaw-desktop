@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppStatus, ConfigDto, ChatSummary, StoredMessage, AgentStreamEvent, ChannelStatus, SoulDto, SkillDto, SkillDetailDto, MemoryDto, MemoryObservabilityDto, UsageSummaryDto, ModelUsageDto, ScheduledTaskDto, TaskRunLogDto, TasksSummaryDto, DbStatsDto, DashboardTasksResult, DashboardMemoriesResult } from "../types";
+import type { AppStatus, ConfigDto, ChatSummary, StoredMessage, AgentStreamEvent, ChannelStatus, SoulDto, SkillDto, SkillDetailDto, MemoryDto, MemoryObservabilityDto, UsageSummaryDto, ModelUsageDto, ScheduledTaskDto, TaskRunLogDto, TasksSummaryDto, DbStatsDto, DashboardTasksResult, DashboardMemoriesResult, McpConfigDto } from "../types";
 
 export async function getStatus(): Promise<AppStatus> {
   return invoke("get_status");
@@ -190,4 +190,13 @@ export async function getDashboardMemories(
 
 export async function getDbStats(): Promise<DbStatsDto> {
   return invoke("get_db_stats");
+}
+
+// MCP Configuration
+export async function getMcpConfig(): Promise<McpConfigDto> {
+  return invoke("get_mcp_config");
+}
+
+export async function saveMcpConfig(config: McpConfigDto): Promise<void> {
+  return invoke("save_mcp_config", { config });
 }

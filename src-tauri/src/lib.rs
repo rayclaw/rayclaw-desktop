@@ -451,6 +451,9 @@ pub fn run() {
             commands::get_dashboard_tasks,
             commands::get_dashboard_memories,
             commands::get_db_stats,
+            // MCP configuration
+            commands::get_mcp_config,
+            commands::save_mcp_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

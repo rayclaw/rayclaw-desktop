@@ -11,6 +11,7 @@ import SchedulerTab from "./settings/SchedulerTab";
 import SessionTab from "./settings/SessionTab";
 import PathsTab from "./settings/PathsTab";
 import AdvancedTab from "./settings/AdvancedTab";
+import McpTab from "./settings/McpTab";
 import ChannelPanel, { type ChannelFieldDef } from "./settings/ChannelPanel";
 
 interface SettingsPageProps {
@@ -176,6 +177,7 @@ export default function SettingsPage({ onBack, onSaved }: SettingsPageProps) {
             <ProviderTab config={config} validationErrors={validationErrors} onUpdate={update} />
           )}
           {activeTab === "skills" && <SkillsTab active={activeTab === "skills"} />}
+          {activeTab === "mcp" && <McpTab active={activeTab === "mcp"} />}
           {activeTab === "memory" && <MemoryTab active={activeTab === "memory"} />}
           {activeTab === "usage" && <UsageTab active={activeTab === "usage"} />}
           {activeTab === "scheduler" && <SchedulerTab active={activeTab === "scheduler"} />}

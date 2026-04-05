@@ -1,6 +1,7 @@
 use crate::state::DesktopState;
 use rayclaw::runtime::AppState;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tracing::{debug, error, info};
@@ -1526,4 +1527,136 @@ pub async fn new_chat(app: tauri::AppHandle) -> Result<i64, String> {
         .upsert_chat(chat_id, Some("New Chat"), "desktop")
         .map_err(|e| e.to_string())?;
     Ok(chat_id)
+}
+
+// ---------------------------------------------------------------------------
+// MCP configuration
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpConfigDto {
+    pub default_protocol_version: Option<String>,
+    pub mcp_servers: HashMap<String, serde_json::Value>,
+}
+
+fn mcp_config_path() -> String {
+    let config = load_config_for_desktop();
+    let data_dir = expand_tilde(&config.data_dir);
+    format!("{data_dir}/mcp.json")
+}
+
+/// Mask sensitive values in MCP server env / headers maps.
+fn mask_mcp_secrets(servers: &mut HashMap<String, serde_json::Value>) {
+    let sensitive_keys = ["key", "token", "secret", "authorization", "password"];
+    for server in servers.values_mut() {
+        for field in &["env", "headers"] {
+            if let Some(map) = server.get_mut(*field).and_then(|v| v.as_object_mut()) {
+                for (k, v) in map.iter_mut() {
+                    let k_lower = k.to_lowercase();
+                    if sensitive_keys.iter().any(|s| k_lower.contains(s)) {
+                        if let Some(s) = v.as_str() {
+                            if !s.is_empty() {
+                                *v = serde_json::Value::String(mask_secret(s));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Merge masked values back from the existing file so we don't overwrite secrets.
+fn merge_mcp_masked_values(
+    new_servers: &mut HashMap<String, serde_json::Value>,
+    old_servers: &HashMap<String, serde_json::Value>,
+) {
+    for (name, new_server) in new_servers.iter_mut() {
+        let Some(old_server) = old_servers.get(name) else {
+            continue;
+        };
+        for field in &["env", "headers"] {
+            let (Some(new_map), Some(old_map)) = (
+                new_server.get_mut(*field).and_then(|v| v.as_object_mut()),
+                old_server.get(*field).and_then(|v| v.as_object()),
+            ) else {
+                continue;
+            };
+            for (k, v) in new_map.iter_mut() {
+                if let Some(s) = v.as_str() {
+                    if is_masked(s) {
+                        if let Some(old_val) = old_map.get(k) {
+                            *v = old_val.clone();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_mcp_config(_app: tauri::AppHandle) -> Result<McpConfigDto, String> {
+    let path = mcp_config_path();
+    match std::fs::read_to_string(&path) {
+        Ok(content) => {
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).map_err(|e| format!("Invalid mcp.json: {e}"))?;
+            let version = parsed
+                .get("defaultProtocolVersion")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let mut servers: HashMap<String, serde_json::Value> = parsed
+                .get("mcpServers")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            mask_mcp_secrets(&mut servers);
+            Ok(McpConfigDto {
+                default_protocol_version: version,
+                mcp_servers: servers,
+            })
+        }
+        Err(_) => Ok(McpConfigDto {
+            default_protocol_version: Some("2025-11-05".to_string()),
+            mcp_servers: HashMap::new(),
+        }),
+    }
+}
+
+#[tauri::command]
+pub async fn save_mcp_config(
+    _app: tauri::AppHandle,
+    config: McpConfigDto,
+) -> Result<(), String> {
+    let path = mcp_config_path();
+
+    // Read existing file to merge masked secrets back
+    let mut servers = config.mcp_servers;
+    if let Ok(existing) = std::fs::read_to_string(&path) {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&existing) {
+            if let Some(old_servers) = parsed
+                .get("mcpServers")
+                .and_then(|v| serde_json::from_value::<HashMap<String, serde_json::Value>>(v.clone()).ok())
+            {
+                merge_mcp_masked_values(&mut servers, &old_servers);
+            }
+        }
+    }
+
+    // Build the JSON with camelCase keys matching rayclaw's expected format
+    let output = serde_json::json!({
+        "defaultProtocolVersion": config.default_protocol_version.unwrap_or_else(|| "2025-11-05".to_string()),
+        "mcpServers": servers,
+    });
+
+    let json = serde_json::to_string_pretty(&output).map_err(|e| e.to_string())?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write mcp.json: {e}"))?;
+    info!("Saved MCP config to {path}");
+    Ok(())
 }

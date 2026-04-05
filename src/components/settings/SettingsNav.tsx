@@ -4,6 +4,7 @@ import type { ChannelStatus } from "../../types";
 export type SettingsTab =
   | "provider"
   | "skills"
+  | "mcp"
   | "memory"
   | "usage"
   | "scheduler"
@@ -74,6 +75,7 @@ export default function SettingsNav({ activeTab, onSelectTab, channelStatuses, s
     <nav className="settings-nav">
       <NavItem tab="provider" label="AI Provider" />
       <NavItem tab="skills" label="Skills" badge={skillCount} />
+      <NavItem tab="mcp" label="MCP Servers" />
 
       <button
         className={`settings-nav-item settings-nav-group ${isChannelTab ? "settings-nav-active" : ""}`}

@@ -244,6 +244,28 @@ export interface DashboardMemoriesResult {
   memories: DashboardMemoryDto[];
 }
 
+// MCP Configuration
+export interface McpServerConfig {
+  transport: string;
+  // stdio
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  // streamable_http
+  endpoint?: string;
+  headers?: Record<string, string>;
+  // common optional
+  protocol_version?: string | null;
+  request_timeout_secs?: number | null;
+  max_retries?: number | null;
+  health_interval_secs?: number | null;
+}
+
+export interface McpConfigDto {
+  default_protocol_version: string | null;
+  mcp_servers: Record<string, McpServerConfig>;
+}
+
 export type AgentStreamEvent =
   | { type: "iteration"; chat_id: number; iteration: number }
   | { type: "tool_start"; chat_id: number; name: string }
