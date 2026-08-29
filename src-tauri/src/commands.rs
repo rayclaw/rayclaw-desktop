@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 // ---------------------------------------------------------------------------
 // DTOs
@@ -106,7 +106,7 @@ pub struct ConfigDto {
 // ---------------------------------------------------------------------------
 
 fn home_dir() -> String {
-    std::env::var("HOME").unwrap_or_else(|_| ".".into())
+    crate::home_dir()
 }
 
 fn expand_tilde(path: &str) -> String {
@@ -119,6 +119,15 @@ fn expand_tilde(path: &str) -> String {
     }
 }
 
+/// Render a path as a YAML single-quoted scalar.
+/// Backslashes are normalized to forward slashes (Windows accepts both, and a
+/// raw `\` would start an escape sequence such as `\U` or `\x` inside
+/// double-quoted YAML). Apostrophes are doubled per the YAML spec.
+fn yaml_path(s: &str) -> String {
+    let normalized = s.replace('\\', "/");
+    format!("'{}'", normalized.replace('\'', "''"))
+}
+
 fn default_config() -> rayclaw::config::Config {
     let home = home_dir();
     let yaml = format!(
@@ -126,11 +135,13 @@ fn default_config() -> rayclaw::config::Config {
 llm_provider: anthropic
 api_key: ""
 model: ""
-data_dir: "{home}/.rayclaw/data"
-working_dir: "{home}/.rayclaw/tmp"
+data_dir: {}
+working_dir: {}
 timezone: UTC
 web_enabled: false
-"#
+"#,
+        yaml_path(&format!("{home}/.rayclaw/data")),
+        yaml_path(&format!("{home}/.rayclaw/tmp")),
     );
     serde_yaml::from_str(&yaml).expect("default config YAML is always valid")
 }
@@ -169,7 +180,7 @@ fn load_config_for_desktop() -> rayclaw::config::Config {
     match std::fs::read_to_string(&path) {
         Ok(content) => {
             serde_yaml::from_str(&content).unwrap_or_else(|e| {
-                debug!("Failed to parse config: {e}");
+                warn!("Failed to parse {path}: {e} — falling back to default config");
                 default_config()
             })
         }
@@ -1659,4 +1670,43 @@ pub async fn save_mcp_config(
     std::fs::write(&path, json).map_err(|e| format!("Failed to write mcp.json: {e}"))?;
     info!("Saved MCP config to {path}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_yaml_path_handles_windows_style_paths() {
+        let quoted = yaml_path(r"C:\Users\sky92");
+        assert_eq!(quoted, r"'C:/Users/sky92'");
+
+        // Simulates the exact template used by default_config(): the value
+        // must parse and preserve the intended path.
+        let home = r"C:\Users\sky92";
+        let yaml = format!("data_dir: {}\n", yaml_path(&format!("{home}/.rayclaw/data")));
+        let value: serde_yaml::Value =
+            serde_yaml::from_str(&yaml).expect("generated YAML must parse");
+        assert_eq!(
+            value["data_dir"].as_str(),
+            Some("C:/Users/sky92/.rayclaw/data")
+        );
+    }
+
+    #[test]
+    fn test_yaml_path_escapes_apostrophes() {
+        let quoted = yaml_path(r"C:\Users\o'brien");
+        assert_eq!(quoted, r"'C:/Users/o''brien'");
+        let yaml = format!("data_dir: {}\n", quoted);
+        let value: serde_yaml::Value =
+            serde_yaml::from_str(&yaml).expect("generated YAML must parse");
+        assert_eq!(value["data_dir"].as_str(), Some("C:/Users/o'brien"));
+    }
+
+    #[test]
+    fn test_default_config_parses_with_windows_home() {
+        // default_config() reads the real environment; the assertion is that
+        // it parses successfully regardless of what HOME/USERPROFILE contain.
+        let _cfg = default_config();
+    }
 }
