@@ -9,7 +9,7 @@ pub type ChannelEnabledMap = HashMap<String, bool>;
 const ENABLED_FILE: &str = "channel-enabled.json";
 
 fn enabled_path() -> String {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let home = crate::home_dir();
     format!("{home}/.rayclaw/{ENABLED_FILE}")
 }
 

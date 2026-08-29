@@ -15,8 +15,25 @@ use tracing::{error, info, warn};
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Resolve the user's home directory cross-platform.
+/// On Windows the standard variable is USERPROFILE; HOME is only set by
+/// POSIX-style environments and its value may contain backslashes.
+#[allow(unused_attributes)]
+pub(crate) fn home_dir() -> String {
+    #[cfg(windows)]
+    {
+        std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| ".".into())
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("HOME").unwrap_or_else(|_| ".".into())
+    }
+}
+
 fn expand_tilde(path: &str) -> String {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let home = home_dir();
     if let Some(rest) = path.strip_prefix("~/") {
         format!("{home}/{rest}")
     } else if path == "~" {
@@ -35,7 +52,7 @@ fn ensure_config_env() {
     if std::env::var("RAYCLAW_CONFIG").is_ok() {
         return; // Already set, respect user override
     }
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let home = home_dir();
     let config_path = format!("{home}/.rayclaw/rayclaw.config.yaml");
     if std::path::Path::new(&config_path).exists() {
         // SAFETY: Called at app startup before any threads are spawned
@@ -46,7 +63,7 @@ fn ensure_config_env() {
 fn init_logging() {
     use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let home = home_dir();
     let log_dir = format!("{home}/.rayclaw/logs");
     let _ = std::fs::create_dir_all(&log_dir);
 
